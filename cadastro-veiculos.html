@@ -27,7 +27,13 @@
         <div class="container">
             <div class="form-container">
                 <h2 class="text-center">Anunciar Veículo</h2>
-                <form id="veiculo-form">
+                
+                <div id="auth-warning" class="message error hidden">
+                    <p>⚠️ Você precisa estar logado para cadastrar veículos.</p>
+                    <a href="login.html" class="btn btn-primary">Fazer Login</a>
+                </div>
+
+                <form id="veiculo-form" class="hidden">
                     <div class="form-group">
                         <label for="marca">Marca *</label>
                         <input type="text" id="marca" name="marca" required>
@@ -53,7 +59,7 @@
                     <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="form-group">
                             <label for="quilometragem">Quilometragem</label>
-                            <input type="number" id="quilometragem" name="quilometragem" min="0">
+                            <input type="number" id="quilometragem" name="quilometragem" min="0" value="0">
                         </div>
                         
                         <div class="form-group">
@@ -71,12 +77,12 @@
                     
                     <div class="form-group">
                         <label for="cor">Cor</label>
-                        <input type="text" id="cor" name="cor">
+                        <input type="text" id="cor" name="cor" placeholder="Ex: Preto, Branco, Prata...">
                     </div>
                     
                     <div class="form-group">
                         <label for="descricao">Descrição</label>
-                        <textarea id="descricao" name="descricao" rows="4" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+                        <textarea id="descricao" name="descricao" rows="4" placeholder="Descreva o veículo..."></textarea>
                     </div>
                     
                     <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
@@ -99,11 +105,37 @@
     <script src="js/auth.js"></script>
     <script src="js/veiculos.js"></script>
     <script>
-        // Verificar autenticação
-        if (!requireAuth()) {
-            window.location.href = 'login.html';
-        }
+        // Verificar autenticação ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            const form = document.getElementById('veiculo-form');
+            const warning = document.getElementById('auth-warning');
+            
+            if (token && user) {
+                // Usuário logado - mostrar formulário
+                form.classList.remove('hidden');
+                warning.classList.add('hidden');
+                
+                // Preencher nome do usuário
+                const userData = JSON.parse(user);
+                document.getElementById('user-name').textContent = userData.nome;
+                document.getElementById('user-menu').classList.remove('hidden');
+            } else {
+                // Usuário não logado - mostrar aviso
+                form.classList.add('hidden');
+                warning.classList.remove('hidden');
+            }
+        });
 
+        // Configurar logout
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        });
+
+        // Submissão do formulário
         document.getElementById('veiculo-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -114,26 +146,28 @@
                 preco: parseFloat(document.getElementById('preco').value),
                 quilometragem: parseInt(document.getElementById('quilometragem').value) || 0,
                 combustivel: document.getElementById('combustivel').value,
-                cor: document.getElementById('cor').value,
-                descricao: document.getElementById('descricao').value
+                cor: document.getElementById('cor').value || 'Não informada',
+                descricao: document.getElementById('descricao').value || ''
             };
+            
+            console.log('📤 Enviando dados:', veiculoData);
             
             const result = await cadastrarVeiculo(veiculoData);
             
             if (result.success) {
-                showMessage('Veículo cadastrado com sucesso!', 'success');
+                showMessage('✅ Veículo cadastrado com sucesso! Redirecionando...', 'success');
                 setTimeout(() => {
                     window.location.href = 'veiculos.html';
                 }, 2000);
             } else {
-                showMessage(result.error, 'error');
+                showMessage(`❌ Erro: ${result.error}`, 'error');
             }
         });
 
         function showMessage(text, type) {
             const messageDiv = document.getElementById('message');
             messageDiv.textContent = text;
-            messageDiv.className = type === 'success' ? 'message success' : 'message error';
+            messageDiv.className = `message ${type}`;
             messageDiv.classList.remove('hidden');
             
             setTimeout(() => {
@@ -162,16 +196,16 @@
             border: 1px solid #f5c6cb;
         }
         
-        select {
+        select, textarea {
             width: 100%;
             padding: 0.75rem;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 1rem;
-            background-color: white;
+            font-family: inherit;
         }
         
-        select:focus {
+        select:focus, textarea:focus {
             outline: none;
             border-color: var(--secondary-color);
         }
