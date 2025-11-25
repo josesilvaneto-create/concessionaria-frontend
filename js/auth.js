@@ -1,5 +1,5 @@
 // Configuração da API
-const API_BASE_URL = 'https://concessionaria-backend-3.onrender.com/api';
+const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
 
 // Elementos da interface
 const authButtons = document.getElementById('auth-buttons');
@@ -148,3 +148,4 @@ function requireAuth() {
     return true;
 
 }
+
