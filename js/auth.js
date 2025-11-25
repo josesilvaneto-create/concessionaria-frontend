@@ -1,6 +1,3 @@
-// Configuração da API - URL CORRETA
-const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
-
 // Elementos da interface
 const authButtons = document.getElementById('auth-buttons');
 const userMenu = document.getElementById('user-menu');
@@ -138,3 +135,4 @@ function requireAuth() {
     }
     return true;
 }
+
