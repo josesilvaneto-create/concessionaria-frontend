@@ -15,6 +15,10 @@
             <div class="nav-links">
                 <a href="index.html" class="nav-link">Início</a>
                 <a href="veiculos.html" class="nav-link">Veículos</a>
+                <div id="auth-buttons">
+                    <a href="login.html" class="btn btn-outline">Login</a>
+                    <a href="cadastro.html" class="btn btn-primary">Cadastre-se</a>
+                </div>
                 <div id="user-menu" class="hidden">
                     <span id="user-name"></span>
                     <button id="logout-btn" class="btn btn-outline">Sair</button>
@@ -44,7 +48,7 @@
                         <input type="text" id="modelo" name="modelo" required>
                     </div>
                     
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="ano">Ano *</label>
                             <input type="number" id="ano" name="ano" min="1900" max="2024" required>
@@ -56,7 +60,7 @@
                         </div>
                     </div>
                     
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="quilometragem">Quilometragem</label>
                             <input type="number" id="quilometragem" name="quilometragem" min="0" value="0">
@@ -84,6 +88,20 @@
                         <label for="descricao">Descrição</label>
                         <textarea id="descricao" name="descricao" rows="4" placeholder="Descreva o veículo..."></textarea>
                     </div>
+
+                    <!-- Upload de Fotos -->
+                    <div class="form-group">
+                        <label>Fotos do Veículo</label>
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-placeholder">
+                                <span>📷</span>
+                                <p>Clique para adicionar fotos</p>
+                                <small>Formatos: JPG, PNG (Máx: 5MB)</small>
+                            </div>
+                            <input type="file" id="foto-veiculo" multiple accept="image/*" style="display: none;">
+                        </div>
+                        <div id="preview-container" class="preview-container"></div>
+                    </div>
                     
                     <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
                         Cadastrar Veículo
@@ -100,34 +118,120 @@
             <p>&copy; 2024 AutoPremium Concessionária. Todos os direitos reservados.</p>
         </div>
     </footer>
-    
+
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/veiculos.js"></script>
     <script>
+        let fotosSelecionadas = [];
+        let veiculoIdCriado = null;
+
         // Verificar autenticação ao carregar a página
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('token');
             const user = localStorage.getItem('user');
             const form = document.getElementById('veiculo-form');
             const warning = document.getElementById('auth-warning');
+            const authButtons = document.getElementById('auth-buttons');
+            const userMenu = document.getElementById('user-menu');
+            const userName = document.getElementById('user-name');
             
             if (token && user) {
-                // Usuário logado - mostrar formulário
                 form.classList.remove('hidden');
                 warning.classList.add('hidden');
+                authButtons.classList.add('hidden');
+                userMenu.classList.remove('hidden');
                 
-                // Preencher nome do usuário
                 const userData = JSON.parse(user);
-                document.getElementById('user-name').textContent = userData.nome;
-                document.getElementById('user-menu').classList.remove('hidden');
+                userName.textContent = userData.nome;
+                
+                // Configurar upload de fotos
+                configurarUploadFotos();
             } else {
-                // Usuário não logado - mostrar aviso
                 form.classList.add('hidden');
                 warning.classList.remove('hidden');
+                authButtons.classList.remove('hidden');
+                userMenu.classList.add('hidden');
             }
         });
+
+        // Configurar área de upload
+        function configurarUploadFotos() {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('foto-veiculo');
+            const previewContainer = document.getElementById('preview-container');
+
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('drag-over');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                processarArquivos(files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                processarArquivos(e.target.files);
+            });
+        }
+
+        // Processar arquivos selecionados
+        function processarArquivos(files) {
+            for (let file of files) {
+                if (file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        fotosSelecionadas.push({
+                            file: file,
+                            dataUrl: e.target.result
+                        });
+                        atualizarPreviews();
+                    };
+                    
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('Por favor, selecione apenas imagens (máximo 5MB cada)');
+                }
+            }
+        }
+
+        // Atualizar preview das imagens
+        function atualizarPreviews() {
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.innerHTML = '';
+
+            fotosSelecionadas.forEach((foto, index) => {
+                const preview = document.createElement('div');
+                preview.className = 'image-preview';
+                preview.innerHTML = `
+                    <img src="${foto.dataUrl}" alt="Preview">
+                    <button type="button" class="remove-image" data-index="${index}">×</button>
+                `;
+                previewContainer.appendChild(preview);
+            });
+
+            // Eventos para remover imagens
+            document.querySelectorAll('.remove-image').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    fotosSelecionadas.splice(index, 1);
+                    atualizarPreviews();
+                });
+            });
+        }
 
         // Configurar logout
         document.getElementById('logout-btn').addEventListener('click', () => {
@@ -151,19 +255,51 @@
                 descricao: document.getElementById('descricao').value || ''
             };
             
-            console.log('📤 Enviando dados:', veiculoData);
+            console.log('📤 Enviando dados do veículo:', veiculoData);
             
+            // Primeiro cadastra o veículo
             const result = await cadastrarVeiculo(veiculoData);
             
             if (result.success) {
-                showMessage('✅ Veículo cadastrado com sucesso! Redirecionando...', 'success');
+                veiculoIdCriado = result.veiculo.id;
+                showMessage('✅ Veículo cadastrado com sucesso! Fazendo upload das fotos...', 'success');
+                
+                // Depois faz upload das fotos
+                if (fotosSelecionadas.length > 0) {
+                    await uploadFotosVeiculo(veiculoIdCriado);
+                }
+                
                 setTimeout(() => {
                     window.location.href = 'veiculos.html';
-                }, 2000);
+                }, 3000);
             } else {
                 showMessage(`❌ Erro: ${result.error}`, 'error');
             }
         });
+
+        // Upload das fotos após cadastrar o veículo
+        async function uploadFotosVeiculo(veiculoId) {
+            for (let i = 0; i < fotosSelecionadas.length; i++) {
+                const foto = fotosSelecionadas[i];
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}/imagens`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ imagem: foto.dataUrl })
+                    });
+
+                    if (!response.ok) {
+                        console.error(`Erro no upload da foto ${i + 1}`);
+                    }
+                } catch (error) {
+                    console.error(`Erro no upload da foto ${i + 1}:`, error);
+                }
+            }
+        }
 
         function showMessage(text, type) {
             const messageDiv = document.getElementById('message');
@@ -210,8 +346,83 @@
             outline: none;
             border-color: var(--secondary-color);
         }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        /* Estilos para upload de fotos */
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+        
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: var(--secondary-color);
+            background: #e3f2fd;
+        }
+        
+        .upload-placeholder span {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .upload-placeholder p {
+            margin: 0.5rem 0;
+            color: #666;
+        }
+        
+        .upload-placeholder small {
+            color: #999;
+        }
+        
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .image-preview {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .image-preview img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+        
+        .remove-image {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255,255,255,0.8);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </body>
 </html>
-
-
