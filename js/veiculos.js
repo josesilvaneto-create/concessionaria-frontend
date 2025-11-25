@@ -128,7 +128,7 @@ function formatarPreco(preco) {
     }).format(preco);
 }
 
-// Cadastrar veículo com melhor tratamento de erro
+// Cadastrar veículo
 async function cadastrarVeiculo(veiculoData) {
     try {
         const token = localStorage.getItem('token');
@@ -136,9 +136,6 @@ async function cadastrarVeiculo(veiculoData) {
         if (!token) {
             return { success: false, error: 'Usuário não autenticado. Faça login novamente.' };
         }
-
-        console.log('🔐 Token:', token ? 'Presente' : 'Ausente');
-        console.log('📤 Enviando para API:', veiculoData);
 
         const response = await fetch(`${API_BASE_URL}/veiculos`, {
             method: 'POST',
@@ -149,24 +146,21 @@ async function cadastrarVeiculo(veiculoData) {
             body: JSON.stringify(veiculoData)
         });
 
-        console.log('📥 Status da resposta:', response.status);
-        
         const data = await response.json();
-        console.log('📄 Dados da resposta:', data);
 
         if (response.ok) {
             return { success: true, veiculo: data.veiculo };
         } else {
             return { 
                 success: false, 
-                error: data.error || `Erro ${response.status}: ${response.statusText}` 
+                error: data.error || `Erro ${response.status}` 
             };
         }
     } catch (error) {
-        console.error('❌ Erro ao cadastrar veículo:', error);
+        console.error('Erro ao cadastrar veículo:', error);
         return { 
             success: false, 
-            error: `Erro de conexão: ${error.message}. Verifique se o backend está online.`
+            error: 'Erro de conexão com o servidor'
         };
     }
 }
@@ -178,11 +172,9 @@ function visualizarVeiculo(id) {
 
 // Inicializar eventos quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
-    // Verificar se estamos na página de veículos
     if (document.getElementById('veiculos-container')) {
         carregarVeiculos();
         
-        // Configurar eventos dos botões de filtro
         const applyFiltersBtn = document.getElementById('apply-filters');
         const clearFiltersBtn = document.getElementById('clear-filters');
         
@@ -195,6 +187,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
-
-
