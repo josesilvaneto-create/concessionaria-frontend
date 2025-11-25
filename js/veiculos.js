@@ -1,4 +1,3 @@
-// Configuração da API - URL CORRETA
 const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
 
 // Estado global dos filtros
@@ -198,3 +197,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
