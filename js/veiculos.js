@@ -29,7 +29,7 @@ async function carregarVeiculos() {
     }
 }
 
-// Exibir veículos na grid
+// Exibir veículos na grid (VERSÃO CORRIGIDA)
 function exibirVeiculos(veiculos) {
     const container = document.getElementById('veiculos-container');
     const noVehicles = document.getElementById('no-vehicles');
@@ -43,7 +43,10 @@ function exibirVeiculos(veiculos) {
     noVehicles.classList.add('hidden');
     container.classList.remove('hidden');
     
-    container.innerHTML = veiculos.map(veiculo => `
+    let html = '';
+    
+    veiculos.forEach(veiculo => {
+        html += `
         <div class="vehicle-card">
             <div class="vehicle-image">
                 <span>${veiculo.marca} ${veiculo.modelo}</span>
@@ -59,13 +62,25 @@ function exibirVeiculos(veiculos) {
                     ${veiculo.descricao ? `<p><strong>Descrição:</strong> ${veiculo.descricao}</p>` : ''}
                 </div>
                 <div class="vehicle-actions">
-                    <button class="btn btn-primary" onclick="visualizarVeiculo(${veiculo.id})">
+                    <button class="btn btn-primary ver-detalhes-btn" data-id="${veiculo.id}">
                         Ver Detalhes
                     </button>
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Configurar eventos dos botões "Ver Detalhes"
+    const botoesDetalhes = document.querySelectorAll('.ver-detalhes-btn');
+    botoesDetalhes.forEach(botao => {
+        botao.addEventListener('click', function() {
+            const veiculoId = this.getAttribute('data-id');
+            verDetalhesVeiculo(veiculoId);
+        });
+    });
 }
 
 // Preencher opções de filtros
@@ -128,6 +143,42 @@ function formatarPreco(preco) {
     }).format(preco);
 }
 
+// Ver detalhes do veículo (VERSÃO CORRIGIDA)
+function verDetalhesVeiculo(id) {
+    console.log('Buscando detalhes do veículo:', id);
+    
+    fetch(`${API_BASE_URL}/veiculos/${id}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Veículo não encontrado');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.veiculo) {
+                const veiculo = data.veiculo;
+                const detalhes = `🚗 DETALHES DO VEÍCULO
+
+Marca: ${veiculo.marca}
+Modelo: ${veiculo.modelo}
+Ano: ${veiculo.ano}
+Preço: R$ ${formatarPreco(veiculo.preco)}
+Quilometragem: ${veiculo.quilometragem.toLocaleString()} km
+Combustível: ${veiculo.combustivel}
+Cor: ${veiculo.cor}
+${veiculo.descricao ? 'Descrição: ' + veiculo.descricao : ''}`;
+                
+                alert(detalhes);
+            } else {
+                alert('Veículo não encontrado!');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar detalhes:', error);
+            alert('Erro ao carregar detalhes do veículo');
+        });
+}
+
 // Cadastrar veículo
 async function cadastrarVeiculo(veiculoData) {
     try {
@@ -163,11 +214,6 @@ async function cadastrarVeiculo(veiculoData) {
             error: 'Erro de conexão com o servidor'
         };
     }
-}
-
-// Visualizar veículo
-function visualizarVeiculo(id) {
-    alert(`Visualizando veículo ${id}`);
 }
 
 // Inicializar eventos quando a página carregar
