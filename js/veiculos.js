@@ -1,5 +1,5 @@
 // Configuração da API
-const API_BASE_URL = 'https://seu-backend.onrender.com/api';
+const API_BASE_URL = 'https://concessionaria-backend-3.onrender.com/api';
 
 // Estado global dos filtros
 let filtrosAtuais = {};
@@ -207,4 +207,5 @@ async function excluirVeiculo(id) {
         console.error('Erro ao excluir veículo:', error);
         alert('Erro de conexão ao excluir veículo');
     }
+
 }
