@@ -1,4 +1,4 @@
-// Configuração da API
+// Configuração da API - URL CORRETA
 const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
 
 // Estado global dos filtros
@@ -65,14 +65,6 @@ function exibirVeiculos(veiculos) {
                     <button class="btn btn-primary" onclick="visualizarVeiculo(${veiculo.id})">
                         Ver Detalhes
                     </button>
-                    ${isMeuVeiculo(veiculo) ? `
-                        <button class="btn btn-outline" onclick="editarVeiculo(${veiculo.id})">
-                            Editar
-                        </button>
-                        <button class="btn btn-outline" onclick="excluirVeiculo(${veiculo.id})" style="color: var(--danger-color); border-color: var(--danger-color);">
-                            Excluir
-                        </button>
-                    ` : ''}
                 </div>
             </div>
         </div>
@@ -125,7 +117,10 @@ function limparFiltros() {
 
 // Mostrar/ocultar loading
 function mostrarLoading(mostrar) {
-    document.getElementById('loading').classList.toggle('hidden', !mostrar);
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.classList.toggle('hidden', !mostrar);
+    }
 }
 
 // Formatar preço
@@ -136,17 +131,18 @@ function formatarPreco(preco) {
     }).format(preco);
 }
 
-// Verificar se o veículo pertence ao usuário logado
-function isMeuVeiculo(veiculo) {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return veiculo.criado_por === user.id;
-}
-
-// Cadastrar veículo
+// Cadastrar veículo com melhor tratamento de erro
 async function cadastrarVeiculo(veiculoData) {
     try {
         const token = localStorage.getItem('token');
         
+        if (!token) {
+            return { success: false, error: 'Usuário não autenticado. Faça login novamente.' };
+        }
+
+        console.log('🔐 Token:', token ? 'Presente' : 'Ausente');
+        console.log('📤 Enviando para API:', veiculoData);
+
         const response = await fetch(`${API_BASE_URL}/veiculos`, {
             method: 'POST',
             headers: {
@@ -155,59 +151,50 @@ async function cadastrarVeiculo(veiculoData) {
             },
             body: JSON.stringify(veiculoData)
         });
+
+        console.log('📥 Status da resposta:', response.status);
         
         const data = await response.json();
-        
+        console.log('📄 Dados da resposta:', data);
+
         if (response.ok) {
             return { success: true, veiculo: data.veiculo };
         } else {
-            return { success: false, error: data.error };
+            return { 
+                success: false, 
+                error: data.error || `Erro ${response.status}: ${response.statusText}` 
+            };
         }
     } catch (error) {
-        console.error('Erro ao cadastrar veículo:', error);
-        return { success: false, error: 'Erro de conexão' };
+        console.error('❌ Erro ao cadastrar veículo:', error);
+        return { 
+            success: false, 
+            error: `Erro de conexão: ${error.message}. Verifique se o backend está online.`
+        };
     }
 }
 
 // Visualizar veículo
 function visualizarVeiculo(id) {
-    alert(`Visualizando veículo ${id}\nEsta funcionalidade pode ser expandida para uma página de detalhes.`);
+    alert(`Visualizando veículo ${id}`);
 }
 
-// Editar veículo
-function editarVeiculo(id) {
-    alert(`Editando veículo ${id}\nEsta funcionalidade pode ser expandida para um formulário de edição.`);
-}
-
-// Excluir veículo
-async function excluirVeiculo(id) {
-    if (!confirm('Tem certeza que deseja excluir este veículo?')) {
-        return;
-    }
-    
-    try {
-        const token = localStorage.getItem('token');
+// Inicializar eventos quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se estamos na página de veículos
+    if (document.getElementById('veiculos-container')) {
+        carregarVeiculos();
         
-        const response = await fetch(`${API_BASE_URL}/veiculos/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        // Configurar eventos dos botões de filtro
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const clearFiltersBtn = document.getElementById('clear-filters');
         
-        const data = await response.json();
-        
-        if (response.ok) {
-            alert('Veículo excluído com sucesso!');
-            carregarVeiculos(); // Recarregar a lista
-        } else {
-            alert('Erro ao excluir veículo: ' + data.error);
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', aplicarFiltros);
         }
-    } catch (error) {
-        console.error('Erro ao excluir veículo:', error);
-        alert('Erro de conexão ao excluir veículo');
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', limparFiltros);
+        }
     }
-
-}
-
-
+});
