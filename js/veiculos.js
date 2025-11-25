@@ -29,7 +29,7 @@ async function carregarVeiculos() {
     }
 }
 
-// Exibir veículos na grid (VERSÃO CORRIGIDA)
+// Exibir veículos na grid (COM IMAGENS)
 function exibirVeiculos(veiculos) {
     const container = document.getElementById('veiculos-container');
     const noVehicles = document.getElementById('no-vehicles');
@@ -46,10 +46,16 @@ function exibirVeiculos(veiculos) {
     let html = '';
     
     veiculos.forEach(veiculo => {
+        const imagemUrl = veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
+        
         html += `
         <div class="vehicle-card">
-            <div class="vehicle-image">
-                <span>${veiculo.marca} ${veiculo.modelo}</span>
+            <div class="vehicle-image" style="background-image: url('${imagemUrl}'); background-size: cover; background-position: center;">
+                <div class="image-overlay">
+                    <span>${veiculo.marca} ${veiculo.modelo}</span>
+                    ${veiculo.imagens && veiculo.imagens.length > 1 ? 
+                        `<small>+${veiculo.imagens.length - 1} foto(s)</small>` : ''}
+                </div>
             </div>
             <div class="vehicle-info">
                 <h3>${veiculo.marca} ${veiculo.modelo}</h3>
@@ -65,6 +71,11 @@ function exibirVeiculos(veiculos) {
                     <button class="btn btn-primary ver-detalhes-btn" data-id="${veiculo.id}">
                         Ver Detalhes
                     </button>
+                    ${isMeuVeiculo(veiculo) ? `
+                        <button class="btn btn-outline adicionar-foto-btn" data-id="${veiculo.id}">
+                            Adicionar Foto
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -73,7 +84,7 @@ function exibirVeiculos(veiculos) {
     
     container.innerHTML = html;
     
-    // Configurar eventos dos botões "Ver Detalhes"
+    // Configurar eventos dos botões
     const botoesDetalhes = document.querySelectorAll('.ver-detalhes-btn');
     botoesDetalhes.forEach(botao => {
         botao.addEventListener('click', function() {
@@ -81,6 +92,99 @@ function exibirVeiculos(veiculos) {
             verDetalhesVeiculo(veiculoId);
         });
     });
+
+    // Configurar eventos dos botões de adicionar foto
+    const botoesFoto = document.querySelectorAll('.adicionar-foto-btn');
+    botoesFoto.forEach(botao => {
+        botao.addEventListener('click', function() {
+            const veiculoId = this.getAttribute('data-id');
+            abrirUploadFoto(veiculoId);
+        });
+    });
+}
+
+// Verificar se o veículo pertence ao usuário logado
+function isMeuVeiculo(veiculo) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return veiculo.criado_por === user.id;
+}
+
+// Abrir modal para upload de foto
+function abrirUploadFoto(veiculoId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            uploadFotoVeiculo(veiculoId, file);
+        }
+    });
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+}
+
+// Upload de foto para veículo
+async function uploadFotoVeiculo(veiculoId, file) {
+    try {
+        // Verificar se o usuário está logado
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Você precisa estar logado para adicionar fotos.');
+            return;
+        }
+
+        // Verificar tamanho do arquivo (máximo 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('A imagem deve ter no máximo 5MB.');
+            return;
+        }
+
+        // Converter arquivo para base64
+        const reader = new FileReader();
+        
+        reader.onload = async function(e) {
+            try {
+                const base64Image = e.target.result;
+                
+                const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}/imagens`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ imagem: base64Image })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('✅ Foto adicionada com sucesso!');
+                    // Recarregar a lista de veículos
+                    carregarVeiculos();
+                } else {
+                    alert('❌ Erro ao adicionar foto: ' + (data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro no upload:', error);
+                alert('❌ Erro ao fazer upload da foto');
+            }
+        };
+
+        reader.onerror = function() {
+            alert('❌ Erro ao ler o arquivo da imagem');
+        };
+
+        reader.readAsDataURL(file);
+        
+    } catch (error) {
+        console.error('Erro no upload de foto:', error);
+        alert('❌ Erro ao processar a foto');
+    }
 }
 
 // Preencher opções de filtros
@@ -143,7 +247,7 @@ function formatarPreco(preco) {
     }).format(preco);
 }
 
-// Ver detalhes do veículo (VERSÃO CORRIGIDA)
+// Ver detalhes do veículo
 function verDetalhesVeiculo(id) {
     console.log('Buscando detalhes do veículo:', id);
     
