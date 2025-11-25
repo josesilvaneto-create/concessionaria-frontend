@@ -1,5 +1,3 @@
-const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
-
 // Estado global dos filtros
 let filtrosAtuais = {};
 let todosVeiculos = [];
@@ -197,5 +195,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
 
 
