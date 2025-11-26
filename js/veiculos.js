@@ -46,7 +46,7 @@ function exibirVeiculos(veiculos) {
     let html = '';
     
     veiculos.forEach(veiculo => {
-        const imagemUrl = veiculo.foto_url || veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
+        const imagemUrl = veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
         
         html += `
         <div class="vehicle-card">
@@ -128,7 +128,7 @@ function abrirUploadFoto(veiculoId) {
     document.body.removeChild(input);
 }
 
-// Upload de foto para veículo (VERSÃO CORRIGIDA - USANDO POST)
+// Upload de foto para veículo
 async function uploadFotoVeiculo(veiculoId, file) {
     try {
         // Verificar se o usuário está logado
@@ -144,114 +144,46 @@ async function uploadFotoVeiculo(veiculoId, file) {
             return;
         }
 
-        console.log('📤 Iniciando upload para veículo:', veiculoId);
-
-        // 1. Fazer upload REAL da imagem
-        const imageUrl = await fazerUploadImagem(file);
-        console.log('✅ Imagem uploadada, URL:', imageUrl.substring(0, 50) + '...');
-
-        // 2. SOLUÇÃO: Usar POST para uma rota específica de upload
-        const response = await fetch(`${API_BASE_URL}/upload-foto`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                veiculo_id: veiculoId,
-                foto_url: imageUrl
-            })
-        });
-
-        console.log('📥 Status da resposta:', response.status);
-
-        if (!response.ok) {
-            // Se a rota /upload-foto não existir, tentar método alternativo
-            console.log('❌ Rota /upload-foto não existe, tentando método alternativo...');
-            await metodoAlternativoUpload(veiculoId, imageUrl, token);
-            return;
-        }
-
-        const data = await response.json();
-        console.log('✅ Foto salva com sucesso:', data);
-
-        alert('✅ Foto adicionada com sucesso!');
-        // Recarregar a lista de veículos
-        carregarVeiculos();
-        
-    } catch (error) {
-        console.error('❌ Erro no upload:', error);
-        alert('❌ Erro ao adicionar foto: ' + error.message);
-    }
-}
-
-// Função para fazer upload REAL da imagem
-async function fazerUploadImagem(file) {
-    try {
-        console.log('🖼️ Fazendo upload REAL do arquivo:', file.name, file.type, file.size);
-        
-        // CONVERTER para Base64 (solução imediata)
-        const base64Image = await converterParaBase64(file);
-        console.log('📸 Imagem convertida para Base64, tamanho:', base64Image.length, 'caracteres');
-        
-        return base64Image;
-        
-    } catch (error) {
-        console.error('❌ Erro no upload real:', error);
-        // Fallback para imagem mock se der erro
-        const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
-        console.log('🔄 Usando fallback mock:', mockImageUrl);
-        return mockImageUrl;
-    }
-}
-
-// Função para converter arquivo para Base64
-function converterParaBase64(file) {
-    return new Promise((resolve, reject) => {
+        // Converter arquivo para base64
         const reader = new FileReader();
         
-        reader.onload = function(e) {
-            resolve(e.target.result);
+        reader.onload = async function(e) {
+            try {
+                const base64Image = e.target.result;
+                
+                const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}/imagens`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ imagem: base64Image })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('✅ Foto adicionada com sucesso!');
+                    // Recarregar a lista de veículos
+                    carregarVeiculos();
+                } else {
+                    alert('❌ Erro ao adicionar foto: ' + (data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro no upload:', error);
+                alert('❌ Erro ao fazer upload da foto');
+            }
         };
-        
-        reader.onerror = function(error) {
-            reject(error);
+
+        reader.onerror = function() {
+            alert('❌ Erro ao ler o arquivo da imagem');
         };
-        
+
         reader.readAsDataURL(file);
-    });
-}
-
-// Método alternativo se o POST não funcionar
-async function metodoAlternativoUpload(veiculoId, imageUrl, token) {
-    try {
-        console.log('🔄 Tentando método alternativo...');
         
-        // Tentar PUT que geralmente tem menos restrições de CORS
-        const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                foto_url: imageUrl
-            })
-        });
-
-        console.log('📥 Status da resposta PUT:', response.status);
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Foto salva com sucesso via PUT:', data);
-            alert('✅ Foto adicionada com sucesso!');
-            carregarVeiculos();
-        } else {
-            throw new Error(`PUT também falhou: ${response.status}`);
-        }
     } catch (error) {
-        console.error('❌ Método alternativo também falhou:', error);
-        alert('❌ Servidor não permite upload de fotos no momento. Contate o administrador.');
+        console.error('Erro no upload de foto:', error);
+        alert('❌ Erro ao processar a foto');
     }
 }
 
