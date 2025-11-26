@@ -3,117 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veículos - Concessionária</title>
+    <title>Veículos - AutoPremium</title>
     <link rel="stylesheet" href="css/style.css">
-    
-    <!-- Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/photo-upload.js"></script>
-    <script src="js/veiculos.js"></script>
 </head>
 <body>
     <header>
         <nav class="navbar">
-            <div class="nav-container">
-                <h1 class="nav-logo">Concessionária</h1>
-                <ul class="nav-menu">
-                    <li class="nav-item">
-                        <a href="index.html" class="nav-link">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="veiculos.html" class="nav-link active">Veículos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="cadastro-veiculo.html" class="nav-link">Cadastrar Veículo</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" onclick="logout()">Sair</a>
-                    </li>
-                </ul>
+            <div class="nav-brand">
+                <h1><a href="index.html" style="text-decoration: none; color: inherit;">AutoPremium</a></h1>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Início</a>
+                <a href="veiculos.html" class="nav-link active">Veículos</a>
+                <div id="auth-buttons">
+                    <a href="login.html" class="btn btn-outline">Login</a>
+                    <a href="cadastro.html" class="btn btn-primary">Cadastre-se</a>
+                </div>
+                <div id="user-menu" class="hidden">
+                    <span id="user-name"></span>
+                    <a href="cadastro-veiculo.html" class="btn btn-outline">Anunciar Veículo</a>
+                    <button id="logout-btn" class="btn btn-outline">Sair</button>
+                </div>
             </div>
         </nav>
     </header>
 
-    <main class="main-content">
-        <div class="container">
-            <div class="page-header">
-                <h1>Nossa Frota</h1>
-                <p>Confira nossos veículos disponíveis</p>
+    <main>
+        <section class="hero" style="padding: 2rem; background: var(--primary-color);">
+            <div class="container">
+                <h2 style="color: white; margin-bottom: 1rem;">Nossa Frota</h2>
+                <p style="color: var(--light-color);">Encontre o veículo perfeito para você</p>
             </div>
+        </section>
 
-            <!-- Container onde os veículos serão carregados -->
-            <div id="veiculos-container">
-                <div class="loading">
-                    <p>Carregando veículos...</p>
+        <section class="container">
+            <div class="filters" style="margin: 2rem 0; padding: 1rem; background: white; border-radius: 8px;">
+                <h3 style="margin-bottom: 1rem;">Filtros</h3>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <select id="filter-marca" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Todas as marcas</option>
+                    </select>
+                    <select id="filter-combustivel" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Todos os combustíveis</option>
+                        <option value="Gasolina">Gasolina</option>
+                        <option value="Álcool">Álcool</option>
+                        <option value="Flex">Flex</option>
+                        <option value="Diesel">Diesel</option>
+                        <option value="Elétrico">Elétrico</option>
+                        <option value="Híbrido">Híbrido</option>
+                    </select>
+                    <input type="number" id="filter-preco-max" placeholder="Preço máximo" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <button id="apply-filters" class="btn btn-primary">Aplicar Filtros</button>
+                    <button id="clear-filters" class="btn btn-outline">Limpar</button>
                 </div>
             </div>
-        </div>
+
+            <div id="loading" class="text-center">
+                <p>Carregando veículos...</p>
+            </div>
+
+            <div id="veiculos-container" class="vehicles-grid">
+                <!-- Veículos serão carregados aqui via JavaScript -->
+            </div>
+
+            <div id="no-vehicles" class="hidden text-center" style="padding: 2rem;">
+                <h3>Nenhum veículo encontrado</h3>
+                <p>Tente ajustar os filtros ou verifique novamente mais tarde.</p>
+            </div>
+        </section>
     </main>
 
-    <footer class="footer">
+    <footer>
         <div class="container">
-            <p>&copy; 2024 Concessionária. Todos os direitos reservados.</p>
+            <p>&copy; 2024 AutoPremium Concessionária. Todos os direitos reservados.</p>
         </div>
     </footer>
 
-    <style>
-        /* Estilos específicos para a página de veículos */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-
-        .page-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .page-header h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .page-header p {
-            color: #666;
-            font-size: 16px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        /* Layout responsivo para os cards */
-        @media (min-width: 768px) {
-            #veiculos-container {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-                gap: 20px;
-            }
-        }
-    </style>
-
-    <script>
-        // Função de logout
-        function logout() {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_id');
-            sessionStorage.removeItem('auth_token');
-            sessionStorage.removeItem('user_id');
-            window.location.href = 'login.html';
-        }
-
-        // Verificar autenticação ao carregar a página
-        document.addEventListener('DOMContentLoaded', function() {
-            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-            if (!token) {
-                window.location.href = 'login.html';
-                return;
-            }
-        });
-    </script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/veiculos.js"></script>
 </body>
 </html>
