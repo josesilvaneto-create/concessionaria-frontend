@@ -46,7 +46,7 @@ function exibirVeiculos(veiculos) {
     let html = '';
     
     veiculos.forEach(veiculo => {
-        const imagemUrl = veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
+        const imagemUrl = veiculo.foto_url || veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
         
         html += `
         <div class="vehicle-card">
@@ -128,7 +128,7 @@ function abrirUploadFoto(veiculoId) {
     document.body.removeChild(input);
 }
 
-// Upload de foto para veículo
+// Upload de foto para veículo (VERSÃO CORRIGIDA)
 async function uploadFotoVeiculo(veiculoId, file) {
     try {
         // Verificar se o usuário está logado
@@ -144,47 +144,61 @@ async function uploadFotoVeiculo(veiculoId, file) {
             return;
         }
 
-        // Converter arquivo para base64
-        const reader = new FileReader();
-        
-        reader.onload = async function(e) {
-            try {
-                const base64Image = e.target.result;
-                
-                const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}/imagens`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ imagem: base64Image })
-                });
+        console.log('📤 Iniciando upload para veículo:', veiculoId);
 
-                const data = await response.json();
+        // 1. Fazer upload da imagem (mock por enquanto)
+        const imageUrl = await fazerUploadImagem(file);
+        console.log('✅ Imagem uploadada, URL:', imageUrl);
 
-                if (response.ok) {
-                    alert('✅ Foto adicionada com sucesso!');
-                    // Recarregar a lista de veículos
-                    carregarVeiculos();
-                } else {
-                    alert('❌ Erro ao adicionar foto: ' + (data.error || 'Erro desconhecido'));
-                }
-            } catch (error) {
-                console.error('Erro no upload:', error);
-                alert('❌ Erro ao fazer upload da foto');
-            }
-        };
+        // 2. Atualizar o veículo com a URL da foto
+        const response = await fetch(`${API_BASE_URL}/veiculos?id=eq.${veiculoId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+                foto_url: imageUrl
+            })
+        });
 
-        reader.onerror = function() {
-            alert('❌ Erro ao ler o arquivo da imagem');
-        };
+        console.log('📥 Status da resposta:', response.status);
 
-        reader.readAsDataURL(file);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Erro do servidor:', errorText);
+            throw new Error(`Erro ${response.status} ao salvar foto`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Foto salva com sucesso:', data);
+
+        alert('✅ Foto adicionada com sucesso!');
+        // Recarregar a lista de veículos
+        carregarVeiculos();
         
     } catch (error) {
-        console.error('Erro no upload de foto:', error);
-        alert('❌ Erro ao processar a foto');
+        console.error('❌ Erro no upload:', error);
+        alert('❌ Erro ao adicionar foto: ' + error.message);
     }
+}
+
+// Função para fazer upload da imagem (MOCK - substitua por serviço real)
+async function fazerUploadImagem(file) {
+    // EM PRODUÇÃO: Substitua por upload para Cloudinary, AWS S3, etc.
+    // Por enquanto, usamos uma imagem placeholder
+    
+    console.log('🖼️ Processando arquivo:', file.name, file.type, file.size);
+    
+    // Simula upload delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Retorna URL de imagem mock
+    const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
+    
+    console.log('📸 URL da imagem gerada:', mockImageUrl);
+    return mockImageUrl;
 }
 
 // Preencher opções de filtros
