@@ -1,339 +1,92 @@
-// Estado global dos filtros
-let filtrosAtuais = {};
-let todosVeiculos = [];
+// js/veiculos.js
+document.addEventListener('DOMContentLoaded', function() {
+    carregarVeiculos();
+});
 
-// Carregar veículos
 async function carregarVeiculos() {
     try {
-        mostrarLoading(true);
-        
-        const response = await fetch(`${API_BASE_URL}/veiculos`);
-        const data = await response.json();
-        
-        if (response.ok) {
-            todosVeiculos = data.veiculos;
-            exibirVeiculos(todosVeiculos);
-            preencherFiltros(todosVeiculos);
-        } else {
-            throw new Error(data.error || 'Erro ao carregar veículos');
-        }
+        const veiculos = await fetchVeiculos();
+        exibirVeiculos(veiculos);
     } catch (error) {
-        console.error('Erro:', error);
-        document.getElementById('veiculos-container').innerHTML = `
-            <div class="error-message">
-                <p>Erro ao carregar veículos: ${error.message}</p>
-            </div>
-        `;
-    } finally {
-        mostrarLoading(false);
+        console.error('Erro ao carregar veículos:', error);
+        document.getElementById('veiculos-container').innerHTML = 
+            '<p>Erro ao carregar veículos. Tente novamente.</p>';
     }
 }
 
-// Exibir veículos na grid (COM IMAGENS)
-function exibirVeiculos(veiculos) {
+async function fetchVeiculos() {
+    const response = await fetch(`${API_URL}/veiculos?select=*`);
+    if (!response.ok) {
+        throw new Error('Erro ao buscar veículos');
+    }
+    return response.json();
+}
+
+async function exibirVeiculos(veiculos) {
     const container = document.getElementById('veiculos-container');
-    const noVehicles = document.getElementById('no-vehicles');
-    
-    if (veiculos.length === 0) {
-        container.classList.add('hidden');
-        noVehicles.classList.remove('hidden');
-        return;
+    container.innerHTML = '';
+
+    for (const veiculo of veiculos) {
+        const veiculoCard = await criarCardVeiculo(veiculo);
+        container.appendChild(veiculoCard);
     }
-    
-    noVehicles.classList.add('hidden');
-    container.classList.remove('hidden');
-    
-    let html = '';
-    
-    veiculos.forEach(veiculo => {
-        const imagemUrl = veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
-        
-        html += `
-        <div class="vehicle-card">
-            <div class="vehicle-image" style="background-image: url('${imagemUrl}'); background-size: cover; background-position: center;">
-                <div class="image-overlay">
-                    <span>${veiculo.marca} ${veiculo.modelo}</span>
-                    ${veiculo.imagens && veiculo.imagens.length > 1 ? 
-                        `<small>+${veiculo.imagens.length - 1} foto(s)</small>` : ''}
-                </div>
-            </div>
-            <div class="vehicle-info">
-                <h3>${veiculo.marca} ${veiculo.modelo}</h3>
-                <div class="vehicle-price">R$ ${formatarPreco(veiculo.preco)}</div>
-                <div class="vehicle-details">
-                    <p><strong>Ano:</strong> ${veiculo.ano}</p>
-                    <p><strong>KM:</strong> ${veiculo.quilometragem.toLocaleString()} km</p>
-                    <p><strong>Combustível:</strong> ${veiculo.combustivel}</p>
-                    <p><strong>Cor:</strong> ${veiculo.cor}</p>
-                    ${veiculo.descricao ? `<p><strong>Descrição:</strong> ${veiculo.descricao}</p>` : ''}
-                </div>
-                <div class="vehicle-actions">
-                    <button class="btn btn-primary ver-detalhes-btn" data-id="${veiculo.id}">
-                        Ver Detalhes
-                    </button>
-                    ${isMeuVeiculo(veiculo) ? `
-                        <button class="btn btn-outline adicionar-foto-btn" data-id="${veiculo.id}">
-                            Adicionar Foto
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
+}
+
+async function criarCardVeiculo(veiculo) {
+    const card = document.createElement('div');
+    card.className = 'veiculo-card';
+    card.style.cssText = `
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    `;
+
+    // Carrega a primeira foto
+    const fotos = await getVeiculoFotos(veiculo.id);
+    const primeiraFoto = fotos && fotos.length > 0 ? fotos[0].url : null;
+
+    card.innerHTML = `
+        <div style="text-align: center; margin-bottom: 15px;">
+            ${primeiraFoto ? 
+                `<img src="${primeiraFoto}" alt="${veiculo.marca} ${veiculo.modelo}" style="width: 100%; max-width: 300px; height: 200px; object-fit: cover; border-radius: 4px;">` :
+                `<div style="width: 100%; height: 200px; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #6c757d;">📷 Sem imagem</div>`
+            }
         </div>
-        `;
-    });
-    
-    container.innerHTML = html;
-    
-    // Configurar eventos dos botões
-    const botoesDetalhes = document.querySelectorAll('.ver-detalhes-btn');
-    botoesDetalhes.forEach(botao => {
-        botao.addEventListener('click', function() {
-            const veiculoId = this.getAttribute('data-id');
-            verDetalhesVeiculo(veiculoId);
-        });
-    });
 
-    // Configurar eventos dos botões de adicionar foto
-    const botoesFoto = document.querySelectorAll('.adicionar-foto-btn');
-    botoesFoto.forEach(botao => {
-        botao.addEventListener('click', function() {
-            const veiculoId = this.getAttribute('data-id');
-            abrirUploadFoto(veiculoId);
-        });
-    });
-}
-
-// Verificar se o veículo pertence ao usuário logado
-function isMeuVeiculo(veiculo) {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return veiculo.criado_por === user.id;
-}
-
-// Abrir modal para upload de foto
-function abrirUploadFoto(veiculoId) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.style.display = 'none';
-    
-    input.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            uploadFotoVeiculo(veiculoId, file);
-        }
-    });
-    
-    document.body.appendChild(input);
-    input.click();
-    document.body.removeChild(input);
-}
-
-// Upload de foto para veículo
-async function uploadFotoVeiculo(veiculoId, file) {
-    try {
-        // Verificar se o usuário está logado
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert('Você precisa estar logado para adicionar fotos.');
-            return;
-        }
-
-        // Verificar tamanho do arquivo (máximo 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            alert('A imagem deve ter no máximo 5MB.');
-            return;
-        }
-
-        // Converter arquivo para base64
-        const reader = new FileReader();
+        <h3 style="margin: 0 0 10px 0; color: #333;">${veiculo.marca} ${veiculo.modelo}</h3>
         
-        reader.onload = async function(e) {
-            try {
-                const base64Image = e.target.result;
-                
-                const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}/imagens`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ imagem: base64Image })
-                });
+        <div style="margin-bottom: 10px;">
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Ano:</strong> ${veiculo.ano}</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Preço:</strong> R$ ${veiculo.preco}</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>KM:</strong> ${veiculo.quilometragem} km</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Combustível:</strong> ${veiculo.combustivel}</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Cor:</strong> ${veiculo.cor}</p>
+        </div>
 
-                const data = await response.json();
+        <div class="fotos-section" style="margin: 15px 0;"></div>
 
-                if (response.ok) {
-                    alert('✅ Foto adicionada com sucesso!');
-                    // Recarregar a lista de veículos
-                    carregarVeiculos();
-                } else {
-                    alert('❌ Erro ao adicionar foto: ' + (data.error || 'Erro desconhecido'));
-                }
-            } catch (error) {
-                console.error('Erro no upload:', error);
-                alert('❌ Erro ao fazer upload da foto');
-            }
-        };
+        <div class="actions" style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="detalhes-button" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Ver Detalhes</button>
+        </div>
+    `;
 
-        reader.onerror = function() {
-            alert('❌ Erro ao ler o arquivo da imagem');
-        };
+    // Adiciona galeria de fotos
+    const fotosSection = card.querySelector('.fotos-section');
+    const gallery = new PhotoGallery(veiculo.id);
+    const galleryElement = await gallery.render();
+    fotosSection.appendChild(galleryElement);
 
-        reader.readAsDataURL(file);
-        
-    } catch (error) {
-        console.error('Erro no upload de foto:', error);
-        alert('❌ Erro ao processar a foto');
-    }
-}
-
-// Preencher opções de filtros
-function preencherFiltros(veiculos) {
-    const marcas = [...new Set(veiculos.map(v => v.marca))].sort();
-    const selectMarca = document.getElementById('filter-marca');
-    
-    selectMarca.innerHTML = '<option value="">Todas as marcas</option>' +
-        marcas.map(marca => `<option value="${marca}">${marca}</option>`).join('');
-}
-
-// Aplicar filtros
-function aplicarFiltros() {
-    const marca = document.getElementById('filter-marca').value;
-    const combustivel = document.getElementById('filter-combustivel').value;
-    const precoMax = document.getElementById('filter-preco-max').value;
-    
-    filtrosAtuais = { marca, combustivel, precoMax };
-    
-    let veiculosFiltrados = todosVeiculos;
-    
-    if (marca) {
-        veiculosFiltrados = veiculosFiltrados.filter(v => v.marca === marca);
-    }
-    
-    if (combustivel) {
-        veiculosFiltrados = veiculosFiltrados.filter(v => v.combustivel === combustivel);
-    }
-    
-    if (precoMax) {
-        veiculosFiltrados = veiculosFiltrados.filter(v => v.preco <= parseFloat(precoMax));
-    }
-    
-    exibirVeiculos(veiculosFiltrados);
-}
-
-// Limpar filtros
-function limparFiltros() {
-    document.getElementById('filter-marca').value = '';
-    document.getElementById('filter-combustivel').value = '';
-    document.getElementById('filter-preco-max').value = '';
-    
-    filtrosAtuais = {};
-    exibirVeiculos(todosVeiculos);
-}
-
-// Mostrar/ocultar loading
-function mostrarLoading(mostrar) {
-    const loading = document.getElementById('loading');
-    if (loading) {
-        loading.classList.toggle('hidden', !mostrar);
-    }
-}
-
-// Formatar preço
-function formatarPreco(preco) {
-    return new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(preco);
-}
-
-// Ver detalhes do veículo
-function verDetalhesVeiculo(id) {
-    console.log('Buscando detalhes do veículo:', id);
-    
-    fetch(`${API_BASE_URL}/veiculos/${id}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Veículo não encontrado');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.veiculo) {
-                const veiculo = data.veiculo;
-                const detalhes = `🚗 DETALHES DO VEÍCULO
-
-Marca: ${veiculo.marca}
-Modelo: ${veiculo.modelo}
-Ano: ${veiculo.ano}
-Preço: R$ ${formatarPreco(veiculo.preco)}
-Quilometragem: ${veiculo.quilometragem.toLocaleString()} km
-Combustível: ${veiculo.combustivel}
-Cor: ${veiculo.cor}
-${veiculo.descricao ? 'Descrição: ' + veiculo.descricao : ''}`;
-                
-                alert(detalhes);
-            } else {
-                alert('Veículo não encontrado!');
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao buscar detalhes:', error);
-            alert('Erro ao carregar detalhes do veículo');
-        });
-}
-
-// Cadastrar veículo
-async function cadastrarVeiculo(veiculoData) {
-    try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-            return { success: false, error: 'Usuário não autenticado. Faça login novamente.' };
-        }
-
-        const response = await fetch(`${API_BASE_URL}/veiculos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(veiculoData)
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            return { success: true, veiculo: data.veiculo };
-        } else {
-            return { 
-                success: false, 
-                error: data.error || `Erro ${response.status}` 
-            };
-        }
-    } catch (error) {
-        console.error('Erro ao cadastrar veículo:', error);
-        return { 
-            success: false, 
-            error: 'Erro de conexão com o servidor'
-        };
-    }
-}
-
-// Inicializar eventos quando a página carregar
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('veiculos-container')) {
+    // Adiciona botão de upload
+    const upload = new PhotoUpload(veiculo.id, () => {
+        // Recarrega o card quando foto é adicionada
+        card.remove();
         carregarVeiculos();
-        
-        const applyFiltersBtn = document.getElementById('apply-filters');
-        const clearFiltersBtn = document.getElementById('clear-filters');
-        
-        if (applyFiltersBtn) {
-            applyFiltersBtn.addEventListener('click', aplicarFiltros);
-        }
-        
-        if (clearFiltersBtn) {
-            clearFiltersBtn.addEventListener('click', limparFiltros);
-        }
-    }
-});
+    });
+    const uploadButton = upload.createUploadButton();
+    fotosSection.appendChild(uploadButton);
+
+    return card;
+}
