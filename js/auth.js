@@ -1,4 +1,3 @@
-
 // Elementos da interface
 const authButtons = document.getElementById('auth-buttons');
 const userMenu = document.getElementById('user-menu');
@@ -136,4 +135,5 @@ function requireAuth() {
     }
     return true;
 }
+
 
