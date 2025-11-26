@@ -1,153 +1,339 @@
-// Utilitários gerais para o frontend
+// Estado global dos filtros
+let filtrosAtuais = {};
+let todosVeiculos = [];
 
-// Formatar data
-function formatarData(dataString) {
-    const data = new Date(dataString);
-    return data.toLocaleDateString('pt-BR');
-}
-
-// Validar e-mail
-function validarEmail(email) {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
-}
-
-// Mostrar notificação
-function mostrarNotificacao(mensagem, tipo = 'info') {
-    // Remove notificação existente
-    const notificacaoExistente = document.getElementById('global-notification');
-    if (notificacaoExistente) {
-        notificacaoExistente.remove();
+// Carregar veículos
+async function carregarVeiculos() {
+    try {
+        mostrarLoading(true);
+        
+        const response = await fetch(`${API_BASE_URL}/veiculos`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            todosVeiculos = data.veiculos;
+            exibirVeiculos(todosVeiculos);
+            preencherFiltros(todosVeiculos);
+        } else {
+            throw new Error(data.error || 'Erro ao carregar veículos');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        document.getElementById('veiculos-container').innerHTML = `
+            <div class="error-message">
+                <p>Erro ao carregar veículos: ${error.message}</p>
+            </div>
+        `;
+    } finally {
+        mostrarLoading(false);
     }
+}
 
-    // Cria nova notificação
-    const notificacao = document.createElement('div');
-    notificacao.id = 'global-notification';
-    notificacao.className = `notification notification-${tipo}`;
-    notificacao.textContent = mensagem;
+// Exibir veículos na grid (COM IMAGENS)
+function exibirVeiculos(veiculos) {
+    const container = document.getElementById('veiculos-container');
+    const noVehicles = document.getElementById('no-vehicles');
     
-    // Estilos da notificação
-    Object.assign(notificacao.style, {
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        padding: '1rem 1.5rem',
-        borderRadius: '4px',
-        color: 'white',
-        fontWeight: '500',
-        zIndex: '1000',
-        maxWidth: '300px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    if (veiculos.length === 0) {
+        container.classList.add('hidden');
+        noVehicles.classList.remove('hidden');
+        return;
+    }
+    
+    noVehicles.classList.add('hidden');
+    container.classList.remove('hidden');
+    
+    let html = '';
+    
+    veiculos.forEach(veiculo => {
+        const imagemUrl = veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
+        
+        html += `
+        <div class="vehicle-card">
+            <div class="vehicle-image" style="background-image: url('${imagemUrl}'); background-size: cover; background-position: center;">
+                <div class="image-overlay">
+                    <span>${veiculo.marca} ${veiculo.modelo}</span>
+                    ${veiculo.imagens && veiculo.imagens.length > 1 ? 
+                        `<small>+${veiculo.imagens.length - 1} foto(s)</small>` : ''}
+                </div>
+            </div>
+            <div class="vehicle-info">
+                <h3>${veiculo.marca} ${veiculo.modelo}</h3>
+                <div class="vehicle-price">R$ ${formatarPreco(veiculo.preco)}</div>
+                <div class="vehicle-details">
+                    <p><strong>Ano:</strong> ${veiculo.ano}</p>
+                    <p><strong>KM:</strong> ${veiculo.quilometragem.toLocaleString()} km</p>
+                    <p><strong>Combustível:</strong> ${veiculo.combustivel}</p>
+                    <p><strong>Cor:</strong> ${veiculo.cor}</p>
+                    ${veiculo.descricao ? `<p><strong>Descrição:</strong> ${veiculo.descricao}</p>` : ''}
+                </div>
+                <div class="vehicle-actions">
+                    <button class="btn btn-primary ver-detalhes-btn" data-id="${veiculo.id}">
+                        Ver Detalhes
+                    </button>
+                    ${isMeuVeiculo(veiculo) ? `
+                        <button class="btn btn-outline adicionar-foto-btn" data-id="${veiculo.id}">
+                            Adicionar Foto
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Configurar eventos dos botões
+    const botoesDetalhes = document.querySelectorAll('.ver-detalhes-btn');
+    botoesDetalhes.forEach(botao => {
+        botao.addEventListener('click', function() {
+            const veiculoId = this.getAttribute('data-id');
+            verDetalhesVeiculo(veiculoId);
+        });
     });
 
-    // Cores por tipo
-    const cores = {
-        success: '#27ae60',
-        error: '#e74c3c',
-        warning: '#f39c12',
-        info: '#3498db'
-    };
-    
-    notificacao.style.backgroundColor = cores[tipo] || cores.info;
-
-    document.body.appendChild(notificacao);
-
-    // Remove após 5 segundos
-    setTimeout(() => {
-        if (notificacao.parentNode) {
-            notificacao.parentNode.removeChild(notificacao);
-        }
-    }, 5000);
+    // Configurar eventos dos botões de adicionar foto
+    const botoesFoto = document.querySelectorAll('.adicionar-foto-btn');
+    botoesFoto.forEach(botao => {
+        botao.addEventListener('click', function() {
+            const veiculoId = this.getAttribute('data-id');
+            abrirUploadFoto(veiculoId);
+        });
+    });
 }
 
-// Debounce para otimizar pesquisas/filtros
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
+// Verificar se o veículo pertence ao usuário logado
+function isMeuVeiculo(veiculo) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return veiculo.criado_por === user.id;
+}
+
+// Abrir modal para upload de foto
+function abrirUploadFoto(veiculoId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            uploadFotoVeiculo(veiculoId, file);
+        }
+    });
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+}
+
+// Upload de foto para veículo
+async function uploadFotoVeiculo(veiculoId, file) {
+    try {
+        // Verificar se o usuário está logado
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Você precisa estar logado para adicionar fotos.');
+            return;
+        }
+
+        // Verificar tamanho do arquivo (máximo 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('A imagem deve ter no máximo 5MB.');
+            return;
+        }
+
+        // Converter arquivo para base64
+        const reader = new FileReader();
+        
+        reader.onload = async function(e) {
+            try {
+                const base64Image = e.target.result;
+                
+                const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}/imagens`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ imagem: base64Image })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('✅ Foto adicionada com sucesso!');
+                    // Recarregar a lista de veículos
+                    carregarVeiculos();
+                } else {
+                    alert('❌ Erro ao adicionar foto: ' + (data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro no upload:', error);
+                alert('❌ Erro ao fazer upload da foto');
+            }
         };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
+
+        reader.onerror = function() {
+            alert('❌ Erro ao ler o arquivo da imagem');
+        };
+
+        reader.readAsDataURL(file);
+        
+    } catch (error) {
+        console.error('Erro no upload de foto:', error);
+        alert('❌ Erro ao processar a foto');
+    }
 }
 
-// Carregar dados do usuário
-function getUsuarioLogado() {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+// Preencher opções de filtros
+function preencherFiltros(veiculos) {
+    const marcas = [...new Set(veiculos.map(v => v.marca))].sort();
+    const selectMarca = document.getElementById('filter-marca');
+    
+    selectMarca.innerHTML = '<option value="">Todas as marcas</option>' +
+        marcas.map(marca => `<option value="${marca}">${marca}</option>`).join('');
 }
 
-// Verificar se usuário está autenticado
-function estaAutenticado() {
-    return !!localStorage.getItem('token');
+// Aplicar filtros
+function aplicarFiltros() {
+    const marca = document.getElementById('filter-marca').value;
+    const combustivel = document.getElementById('filter-combustivel').value;
+    const precoMax = document.getElementById('filter-preco-max').value;
+    
+    filtrosAtuais = { marca, combustivel, precoMax };
+    
+    let veiculosFiltrados = todosVeiculos;
+    
+    if (marca) {
+        veiculosFiltrados = veiculosFiltrados.filter(v => v.marca === marca);
+    }
+    
+    if (combustivel) {
+        veiculosFiltrados = veiculosFiltrados.filter(v => v.combustivel === combustivel);
+    }
+    
+    if (precoMax) {
+        veiculosFiltrados = veiculosFiltrados.filter(v => v.preco <= parseFloat(precoMax));
+    }
+    
+    exibirVeiculos(veiculosFiltrados);
 }
 
-// Redirecionar se não autenticado
-function requerAutenticacao() {
-    if (!estaAutenticado()) {
-        window.location.href = 'login.html';
-        return false;
-    }
-    return true;
+// Limpar filtros
+function limparFiltros() {
+    document.getElementById('filter-marca').value = '';
+    document.getElementById('filter-combustivel').value = '';
+    document.getElementById('filter-preco-max').value = '';
+    
+    filtrosAtuais = {};
+    exibirVeiculos(todosVeiculos);
 }
 
-// Sair
-function sair() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'index.html';
+// Mostrar/ocultar loading
+function mostrarLoading(mostrar) {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.classList.toggle('hidden', !mostrar);
+    }
 }
 
-// Adicionar estilos para notificações
-const estilosNotificacao = `
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 1rem 1.5rem;
-        border-radius: 4px;
-        color: white;
-        font-weight: 500;
-        z-index: 1000;
-        max-width: 300px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        animation: slideIn 0.3s ease-out;
-    }
+// Formatar preço
+function formatarPreco(preco) {
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(preco);
+}
+
+// Ver detalhes do veículo
+function verDetalhesVeiculo(id) {
+    console.log('Buscando detalhes do veículo:', id);
     
-    .notification-success {
-        background-color: #27ae60;
-    }
-    
-    .notification-error {
-        background-color: #e74c3c;
-    }
-    
-    .notification-warning {
-        background-color: #f39c12;
-    }
-    
-    .notification-info {
-        background-color: #3498db;
-    }
-    
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
+    fetch(`${API_BASE_URL}/veiculos/${id}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Veículo não encontrado');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.veiculo) {
+                const veiculo = data.veiculo;
+                const detalhes = `🚗 DETALHES DO VEÍCULO
+
+Marca: ${veiculo.marca}
+Modelo: ${veiculo.modelo}
+Ano: ${veiculo.ano}
+Preço: R$ ${formatarPreco(veiculo.preco)}
+Quilometragem: ${veiculo.quilometragem.toLocaleString()} km
+Combustível: ${veiculo.combustivel}
+Cor: ${veiculo.cor}
+${veiculo.descricao ? 'Descrição: ' + veiculo.descricao : ''}`;
+                
+                alert(detalhes);
+            } else {
+                alert('Veículo não encontrado!');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar detalhes:', error);
+            alert('Erro ao carregar detalhes do veículo');
+        });
+}
+
+// Cadastrar veículo
+async function cadastrarVeiculo(veiculoData) {
+    try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            return { success: false, error: 'Usuário não autenticado. Faça login novamente.' };
         }
-        to {
-            transform: translateX(0);
-            opacity: 1;
+
+        const response = await fetch(`${API_BASE_URL}/veiculos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(veiculoData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            return { success: true, veiculo: data.veiculo };
+        } else {
+            return { 
+                success: false, 
+                error: data.error || `Erro ${response.status}` 
+            };
+        }
+    } catch (error) {
+        console.error('Erro ao cadastrar veículo:', error);
+        return { 
+            success: false, 
+            error: 'Erro de conexão com o servidor'
+        };
+    }
+}
+
+// Inicializar eventos quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('veiculos-container')) {
+        carregarVeiculos();
+        
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const clearFiltersBtn = document.getElementById('clear-filters');
+        
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', aplicarFiltros);
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', limparFiltros);
         }
     }
-`;
-
-// Injetar estilos na página
-if (!document.querySelector('#notification-styles')) {
-    const styleSheet = document.createElement('style');
-    styleSheet.id = 'notification-styles';
-    styleSheet.textContent = estilosNotificacao;
-    document.head.appendChild(styleSheet);
-}
+});
