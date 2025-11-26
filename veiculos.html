@@ -1,108 +1,120 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
 
-const authRoutes = require('./routes/auth');
-const veiculosRoutes = require('./routes/veiculos');
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veículos - Concessionária</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/photo-upload.js"></script>
+    <script src="js/veiculos.js"></script>
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="nav-container">
+                <h1 class="nav-logo">Concessionária</h1>
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="index.html" class="nav-link">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="veiculos.html" class="nav-link active">Veículos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="cadastro-veiculo.html" class="nav-link">Cadastrar Veículo</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="logout()">Sair</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
 
-const app = express();
-const PORT = process.env.PORT || 10000;
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1>Nossa Frota</h1>
+                <p>Confira nossos veículos disponíveis</p>
+            </div>
 
-// CORS UNIVERSAL - Aceita qualquer origem
-app.use(cors({
-    origin: ['https://concessionaria-frontend.vercel.app', 'http://localhost:3000'],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Prefer']
-}));
+            <!-- Container onde os veículos serão carregados -->
+            <div id="veiculos-container">
+                <div class="loading">
+                    <p>Carregando veículos...</p>
+                </div>
+            </div>
+        </div>
+    </main>
 
-// Aumentar limite para upload de imagens
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Concessionária. Todos os direitos reservados.</p>
+        </div>
+    </footer>
 
-// Rotas da API
-app.use('/api/auth', authRoutes);
-app.use('/api/veiculos', veiculosRoutes);
-
-// Rota de health check
-app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
-        message: 'Servidor da concessionária funcionando',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-    });
-});
-
-// Rota raiz - resposta mais completa
-app.get('/', (req, res) => {
-    res.json({ 
-        success: true,
-        message: '🚀 API da Concessionária AutoPremium - ONLINE',
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        endpoints: {
-            docs: '/api/health',
-            auth: '/api/auth',
-            veiculos: '/api/veiculos'
-        },
-        status: {
-            server: 'online',
-            database: 'connected',
-            environment: process.env.NODE_ENV || 'development'
+    <style>
+        /* Estilos específicos para a página de veículos */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
         }
-    });
-});
 
-// Rota da API raiz
-app.get('/api', (req, res) => {
-    res.json({ 
-        message: 'API AutoPremium - Endpoints disponíveis',
-        endpoints: {
-            health: '/api/health',
-            auth: {
-                register: 'POST /api/auth/register',
-                login: 'POST /api/auth/login',
-                logout: 'POST /api/auth/logout',
-                me: 'GET /api/auth/me'
-            },
-            veiculos: {
-                list: 'GET /api/veiculos',
-                get: 'GET /api/veiculos/:id',
-                create: 'POST /api/veiculos',
-                update: 'PUT /api/veiculos/:id',
-                delete: 'DELETE /api/veiculos/:id'
+        .page-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Layout responsivo para os cards */
+        @media (min-width: 768px) {
+            #veiculos-container {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+                gap: 20px;
             }
         }
-    });
-});
+    </style>
 
-// Middleware de tratamento de erros
-app.use((error, req, res, next) => {
-    console.error('❌ Erro no servidor:', error);
-    res.status(500).json({ 
-        success: false,
-        error: 'Erro interno do servidor',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Algo deu errado'
-    });
-});
+    <script>
+        // Função de logout
+        function logout() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_id');
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('user_id');
+            window.location.href = 'login.html';
+        }
 
-// Rota não encontrada
-app.use('*', (req, res) => {
-    res.status(404).json({ 
-        success: false,
-        error: 'Rota não encontrada',
-        path: req.originalUrl,
-        available_endpoints: ['/', '/api', '/api/health', '/api/veiculos', '/api/auth']
-    });
-});
-
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📊 Health Check: http://localhost:${PORT}/api/health`);
-    console.log(`🔗 URL do Render: https://concessionaria-backend-5.onrender.com`);
-    console.log(`✅ Backend pronto para receber requisições!`);
-});
-
-module.exports = app;
-
+        // Verificar autenticação ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+        });
+    </script>
+</body>
+</html>
