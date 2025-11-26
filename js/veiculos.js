@@ -128,7 +128,7 @@ function abrirUploadFoto(veiculoId) {
     document.body.removeChild(input);
 }
 
-// Upload de foto para veículo (VERSÃO CORRIGIDA)
+// Upload de foto para veículo (VERSÃO CORRIGIDA - USANDO POST)
 async function uploadFotoVeiculo(veiculoId, file) {
     try {
         // Verificar se o usuário está logado
@@ -150,15 +150,15 @@ async function uploadFotoVeiculo(veiculoId, file) {
         const imageUrl = await fazerUploadImagem(file);
         console.log('✅ Imagem uploadada, URL:', imageUrl);
 
-        // 2. Atualizar o veículo com a URL da foto
-        const response = await fetch(`${API_BASE_URL}/veiculos?id=eq.${veiculoId}`, {
-            method: 'PATCH',
+        // 2. SOLUÇÃO: Usar POST para uma rota específica de upload
+        const response = await fetch(`${API_BASE_URL}/upload-foto`, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'Prefer': 'return=representation'
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
+                veiculo_id: veiculoId,
                 foto_url: imageUrl
             })
         });
@@ -166,9 +166,10 @@ async function uploadFotoVeiculo(veiculoId, file) {
         console.log('📥 Status da resposta:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Erro do servidor:', errorText);
-            throw new Error(`Erro ${response.status} ao salvar foto`);
+            // Se a rota /upload-foto não existir, tentar método alternativo
+            console.log('❌ Rota /upload-foto não existe, tentando método alternativo...');
+            await metodoAlternativoUpload(veiculoId, imageUrl, token);
+            return;
         }
 
         const data = await response.json();
@@ -199,6 +200,39 @@ async function fazerUploadImagem(file) {
     
     console.log('📸 URL da imagem gerada:', mockImageUrl);
     return mockImageUrl;
+}
+
+// Método alternativo se o POST não funcionar
+async function metodoAlternativoUpload(veiculoId, imageUrl, token) {
+    try {
+        console.log('🔄 Tentando método alternativo...');
+        
+        // Tentar PUT que geralmente tem menos restrições de CORS
+        const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                foto_url: imageUrl
+            })
+        });
+
+        console.log('📥 Status da resposta PUT:', response.status);
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Foto salva com sucesso via PUT:', data);
+            alert('✅ Foto adicionada com sucesso!');
+            carregarVeiculos();
+        } else {
+            throw new Error(`PUT também falhou: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Método alternativo também falhou:', error);
+        alert('❌ Servidor não permite upload de fotos no momento. Contate o administrador.');
+    }
 }
 
 // Preencher opções de filtros
