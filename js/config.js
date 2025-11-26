@@ -1,5 +1,5 @@
 // js/config.js
-const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
+const API_URL = 'https://concessionaria-backend-5.onrender.com/api';
 
 function getToken() {
     return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
