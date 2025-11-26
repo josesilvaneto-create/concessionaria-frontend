@@ -1,3 +1,4 @@
+
 // Estado global dos filtros
 let filtrosAtuais = {};
 let todosVeiculos = [];
@@ -12,12 +13,6 @@ async function carregarVeiculos() {
         
         if (response.ok) {
             todosVeiculos = data.veiculos;
-            
-            // Carregar fotos para cada veículo
-            for (let veiculo of todosVeiculos) {
-                veiculo.fotos = await carregarFotosVeiculo(veiculo.id);
-            }
-            
             exibirVeiculos(todosVeiculos);
             preencherFiltros(todosVeiculos);
         } else {
@@ -35,21 +30,7 @@ async function carregarVeiculos() {
     }
 }
 
-// Carregar fotos de um veículo específico
-async function carregarFotosVeiculo(veiculoId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/veiculo_fotos?veiculo_id=eq.${veiculoId}&order=ordem.asc`);
-        if (response.ok) {
-            return await response.json();
-        }
-        return [];
-    } catch (error) {
-        console.error('Erro ao carregar fotos:', error);
-        return [];
-    }
-}
-
-// Exibir veículos na grid (COM MÚLTIPLAS FOTOS)
+// Exibir veículos na grid (COM IMAGENS)
 function exibirVeiculos(veiculos) {
     const container = document.getElementById('veiculos-container');
     const noVehicles = document.getElementById('no-vehicles');
@@ -66,23 +47,16 @@ function exibirVeiculos(veiculos) {
     let html = '';
     
     veiculos.forEach(veiculo => {
-        const fotos = veiculo.fotos || [];
-        const primeiraFoto = fotos.length > 0 ? fotos[0].url : 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
+        const imagemUrl = veiculo.foto_url || veiculo.imagem_principal || 'https://via.placeholder.com/300x200/2c3e50/ffffff?text=Sem+Imagem';
         
         html += `
-        <div class="vehicle-card" data-veiculo-id="${veiculo.id}" data-fotos='${JSON.stringify(fotos)}'>
-            <div class="vehicle-image" style="background-image: url('${primeiraFoto}'); background-size: cover; background-position: center;">
+        <div class="vehicle-card">
+            <div class="vehicle-image" style="background-image: url('${imagemUrl}'); background-size: cover; background-position: center;">
                 <div class="image-overlay">
                     <span>${veiculo.marca} ${veiculo.modelo}</span>
-                    ${fotos.length > 1 ? `<small>+${fotos.length - 1} foto(s)</small>` : ''}
+                    ${veiculo.imagens && veiculo.imagens.length > 1 ? 
+                        `<small>+${veiculo.imagens.length - 1} foto(s)</small>` : ''}
                 </div>
-                ${fotos.length > 0 ? `
-                    <div class="fotos-indicadores">
-                        ${fotos.map((foto, index) => 
-                            `<span class="indicador ${index === 0 ? 'ativo' : ''}" data-index="${index}"></span>`
-                        ).join('')}
-                    </div>
-                ` : ''}
             </div>
             <div class="vehicle-info">
                 <h3>${veiculo.marca} ${veiculo.modelo}</h3>
@@ -94,29 +68,13 @@ function exibirVeiculos(veiculos) {
                     <p><strong>Cor:</strong> ${veiculo.cor}</p>
                     ${veiculo.descricao ? `<p><strong>Descrição:</strong> ${veiculo.descricao}</p>` : ''}
                 </div>
-                
-                <!-- Galeria de fotos -->
-                ${fotos.length > 0 ? `
-                    <div class="mini-galeria">
-                        <h4>Fotos do Veículo (${fotos.length}/3)</h4>
-                        <div class="mini-fotos">
-                            ${fotos.map((foto, index) => `
-                                <div class="mini-foto-item">
-                                    <img src="${foto.url}" alt="Foto ${index + 1}">
-                                    ${isMeuVeiculo(veiculo) ? `<button class="btn-excluir-foto" data-foto-id="${foto.id}">×</button>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                
                 <div class="vehicle-actions">
                     <button class="btn btn-primary ver-detalhes-btn" data-id="${veiculo.id}">
                         Ver Detalhes
                     </button>
                     ${isMeuVeiculo(veiculo) ? `
                         <button class="btn btn-outline adicionar-foto-btn" data-id="${veiculo.id}">
-                            ${fotos.length >= 3 ? '❌ Limite de 3 fotos' : `📷 Adicionar Foto (${fotos.length}/3)`}
+                            Adicionar Foto
                         </button>
                     ` : ''}
                 </div>
@@ -127,13 +85,7 @@ function exibirVeiculos(veiculos) {
     
     container.innerHTML = html;
     
-    // Configurar eventos
-    configurarEventosVeiculos();
-}
-
-// Configurar eventos dos veículos
-function configurarEventosVeiculos() {
-    // Botões de detalhes
+    // Configurar eventos dos botões
     const botoesDetalhes = document.querySelectorAll('.ver-detalhes-btn');
     botoesDetalhes.forEach(botao => {
         botao.addEventListener('click', function() {
@@ -142,47 +94,12 @@ function configurarEventosVeiculos() {
         });
     });
 
-    // Botões de adicionar foto
+    // Configurar eventos dos botões de adicionar foto
     const botoesFoto = document.querySelectorAll('.adicionar-foto-btn');
     botoesFoto.forEach(botao => {
         botao.addEventListener('click', function() {
             const veiculoId = this.getAttribute('data-id');
-            const fotosAtuais = parseInt(this.textContent.match(/\((\d+)\/3\)/)?.[1]) || 0;
-            
-            if (fotosAtuais >= 3) {
-                alert('❌ Limite máximo de 3 fotos por veículo atingido!');
-                return;
-            }
-            
-            abrirUploadFoto(veiculoId, fotosAtuais);
-        });
-    });
-
-    // Botões de excluir foto
-    const botoesExcluir = document.querySelectorAll('.btn-excluir-foto');
-    botoesExcluir.forEach(botao => {
-        botao.addEventListener('click', function() {
-            const fotoId = this.getAttribute('data-foto-id');
-            excluirFoto(fotoId);
-        });
-    });
-
-    // Indicadores de fotos (slideshow)
-    const indicadores = document.querySelectorAll('.indicador');
-    indicadores.forEach(indicador => {
-        indicador.addEventListener('click', function() {
-            const index = parseInt(this.getAttribute('data-index'));
-            const card = this.closest('.vehicle-card');
-            const fotos = JSON.parse(card.getAttribute('data-fotos') || '[]');
-            
-            if (fotos[index]) {
-                const imagem = card.querySelector('.vehicle-image');
-                imagem.style.backgroundImage = `url('${fotos[index].url}')`;
-                
-                // Atualizar indicadores ativos
-                card.querySelectorAll('.indicador').forEach(ind => ind.classList.remove('ativo'));
-                this.classList.add('ativo');
-            }
+            abrirUploadFoto(veiculoId);
         });
     });
 }
@@ -194,26 +111,16 @@ function isMeuVeiculo(veiculo) {
 }
 
 // Abrir modal para upload de foto
-function abrirUploadFoto(veiculoId, fotosAtuais) {
+function abrirUploadFoto(veiculoId) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.multiple = true;
     input.style.display = 'none';
     
     input.addEventListener('change', function(e) {
-        const files = Array.from(e.target.files);
-        if (files.length > 0) {
-            const fotosRestantes = 3 - fotosAtuais;
-            
-            if (files.length > fotosRestantes) {
-                alert(`❌ Você só pode adicionar mais ${fotosRestantes} foto(s). Selecione no máximo ${fotosRestantes} arquivo(s).`);
-                files.splice(fotosRestantes);
-            }
-            
-            files.forEach(file => {
-                uploadFotoVeiculo(veiculoId, file);
-            });
+        const file = e.target.files[0];
+        if (file) {
+            uploadFotoVeiculo(veiculoId, file);
         }
     });
     
@@ -222,15 +129,17 @@ function abrirUploadFoto(veiculoId, fotosAtuais) {
     document.body.removeChild(input);
 }
 
-// Upload de foto para veículo
+// Upload de foto para veículo (VERSÃO CORRIGIDA)
 async function uploadFotoVeiculo(veiculoId, file) {
     try {
+        // Verificar se o usuário está logado
         const token = localStorage.getItem('token');
         if (!token) {
             alert('Você precisa estar logado para adicionar fotos.');
             return;
         }
 
+        // Verificar tamanho do arquivo (máximo 5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('A imagem deve ter no máximo 5MB.');
             return;
@@ -238,27 +147,20 @@ async function uploadFotoVeiculo(veiculoId, file) {
 
         console.log('📤 Iniciando upload para veículo:', veiculoId);
 
-        // 1. Fazer upload REAL da imagem
+        // 1. Fazer upload da imagem (mock por enquanto)
         const imageUrl = await fazerUploadImagem(file);
-        console.log('✅ Imagem uploadada');
+        console.log('✅ Imagem uploadada, URL:', imageUrl);
 
-        // 2. Contar fotos atuais para definir ordem
-        const fotosAtuais = await carregarFotosVeiculo(veiculoId);
-        const novaOrdem = fotosAtuais.length;
-
-        // 3. Salvar na tabela veiculo_fotos
-        const response = await fetch(`${API_BASE_URL}/veiculo_fotos`, {
-            method: 'POST',
+        // 2. Atualizar o veículo com a URL da foto
+        const response = await fetch(`${API_BASE_URL}/veiculos?id=eq.${veiculoId}`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
                 'Prefer': 'return=representation'
             },
             body: JSON.stringify({
-                veiculo_id: veiculoId,
-                url: imageUrl,
-                ordem: novaOrdem,
-                created_by: JSON.parse(localStorage.getItem('user') || '{}').id
+                foto_url: imageUrl
             })
         });
 
@@ -266,13 +168,15 @@ async function uploadFotoVeiculo(veiculoId, file) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Erro ${response.status}: ${errorText}`);
+            console.error('❌ Erro do servidor:', errorText);
+            throw new Error(`Erro ${response.status} ao salvar foto`);
         }
 
         const data = await response.json();
         console.log('✅ Foto salva com sucesso:', data);
 
         alert('✅ Foto adicionada com sucesso!');
+        // Recarregar a lista de veículos
         carregarVeiculos();
         
     } catch (error) {
@@ -281,65 +185,21 @@ async function uploadFotoVeiculo(veiculoId, file) {
     }
 }
 
-// Excluir foto
-async function excluirFoto(fotoId) {
-    if (!confirm('Tem certeza que deseja excluir esta foto?')) {
-        return;
-    }
-
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/veiculo_fotos?id=eq.${fotoId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (response.ok) {
-            alert('✅ Foto excluída com sucesso!');
-            carregarVeiculos();
-        } else {
-            throw new Error('Erro ao excluir foto');
-        }
-    } catch (error) {
-        console.error('❌ Erro ao excluir foto:', error);
-        alert('❌ Erro ao excluir foto');
-    }
-}
-
-// Função para fazer upload REAL da imagem
+// Função para fazer upload da imagem (MOCK - substitua por serviço real)
 async function fazerUploadImagem(file) {
-    try {
-        console.log('🖼️ Fazendo upload REAL do arquivo:', file.name, file.type, file.size);
-        
-        const base64Image = await converterParaBase64(file);
-        console.log('📸 Imagem convertida para Base64');
-        
-        return base64Image;
-        
-    } catch (error) {
-        console.error('❌ Erro no upload real:', error);
-        const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
-        return mockImageUrl;
-    }
-}
-
-// Função para converter arquivo para Base64
-function converterParaBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = function(e) {
-            resolve(e.target.result);
-        };
-        
-        reader.onerror = function(error) {
-            reject(error);
-        };
-        
-        reader.readAsDataURL(file);
-    });
+    // EM PRODUÇÃO: Substitua por upload para Cloudinary, AWS S3, etc.
+    // Por enquanto, usamos uma imagem placeholder
+    
+    console.log('🖼️ Processando arquivo:', file.name, file.type, file.size);
+    
+    // Simula upload delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Retorna URL de imagem mock
+    const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
+    
+    console.log('📸 URL da imagem gerada:', mockImageUrl);
+    return mockImageUrl;
 }
 
 // Preencher opções de filtros
