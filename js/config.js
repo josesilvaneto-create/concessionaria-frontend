@@ -1,2 +1,2 @@
 // config.js - Configurações globais
-const API_BASE_URL = 'https://concessionaria-backend-1.onrender.com/api';
+const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
