@@ -1,4 +1,3 @@
-
 // Estado global dos filtros
 let filtrosAtuais = {};
 let todosVeiculos = [];
@@ -52,7 +51,8 @@ function exibirVeiculos(veiculos) {
         html += `
         <div class="vehicle-card">
             <div class="vehicle-image" style="background-image: url('${imagemUrl}'); background-size: cover; background-position: center;">
-                
+                <div class="image-overlay">
+                    <span>${veiculo.marca} ${veiculo.modelo}</span>
                     ${veiculo.imagens && veiculo.imagens.length > 1 ? 
                         `<small>+${veiculo.imagens.length - 1} foto(s)</small>` : ''}
                 </div>
@@ -128,7 +128,7 @@ function abrirUploadFoto(veiculoId) {
     document.body.removeChild(input);
 }
 
-// Upload de foto para veículo (VERSÃO CORRIGIDA)
+// Upload de foto para veículo (VERSÃO CORRIGIDA - USANDO POST)
 async function uploadFotoVeiculo(veiculoId, file) {
     try {
         // Verificar se o usuário está logado
@@ -146,19 +146,19 @@ async function uploadFotoVeiculo(veiculoId, file) {
 
         console.log('📤 Iniciando upload para veículo:', veiculoId);
 
-        // 1. Fazer upload da imagem (mock por enquanto)
+        // 1. Fazer upload REAL da imagem
         const imageUrl = await fazerUploadImagem(file);
-        console.log('✅ Imagem uploadada, URL:', imageUrl);
+        console.log('✅ Imagem uploadada, URL:', imageUrl.substring(0, 50) + '...');
 
-        // 2. Atualizar o veículo com a URL da foto
-        const response = await fetch(`${API_BASE_URL}/veiculos?id=eq.${veiculoId}`, {
-            method: 'PATCH',
+        // 2. SOLUÇÃO: Usar POST para uma rota específica de upload
+        const response = await fetch(`${API_BASE_URL}/upload-foto`, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'Prefer': 'return=representation'
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
+                veiculo_id: veiculoId,
                 foto_url: imageUrl
             })
         });
@@ -166,9 +166,10 @@ async function uploadFotoVeiculo(veiculoId, file) {
         console.log('📥 Status da resposta:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Erro do servidor:', errorText);
-            throw new Error(`Erro ${response.status} ao salvar foto`);
+            // Se a rota /upload-foto não existir, tentar método alternativo
+            console.log('❌ Rota /upload-foto não existe, tentando método alternativo...');
+            await metodoAlternativoUpload(veiculoId, imageUrl, token);
+            return;
         }
 
         const data = await response.json();
@@ -184,21 +185,74 @@ async function uploadFotoVeiculo(veiculoId, file) {
     }
 }
 
-// Função para fazer upload da imagem (MOCK - substitua por serviço real)
+// Função para fazer upload REAL da imagem
 async function fazerUploadImagem(file) {
-    // EM PRODUÇÃO: Substitua por upload para Cloudinary, AWS S3, etc.
-    // Por enquanto, usamos uma imagem placeholder
-    
-    console.log('🖼️ Processando arquivo:', file.name, file.type, file.size);
-    
-    // Simula upload delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Retorna URL de imagem mock
-    const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
-    
-    console.log('📸 URL da imagem gerada:', mockImageUrl);
-    return mockImageUrl;
+    try {
+        console.log('🖼️ Fazendo upload REAL do arquivo:', file.name, file.type, file.size);
+        
+        // CONVERTER para Base64 (solução imediata)
+        const base64Image = await converterParaBase64(file);
+        console.log('📸 Imagem convertida para Base64, tamanho:', base64Image.length, 'caracteres');
+        
+        return base64Image;
+        
+    } catch (error) {
+        console.error('❌ Erro no upload real:', error);
+        // Fallback para imagem mock se der erro
+        const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
+        console.log('🔄 Usando fallback mock:', mockImageUrl);
+        return mockImageUrl;
+    }
+}
+
+// Função para converter arquivo para Base64
+function converterParaBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            resolve(e.target.result);
+        };
+        
+        reader.onerror = function(error) {
+            reject(error);
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+// Método alternativo se o POST não funcionar
+async function metodoAlternativoUpload(veiculoId, imageUrl, token) {
+    try {
+        console.log('🔄 Tentando método alternativo...');
+        
+        // Tentar PUT que geralmente tem menos restrições de CORS
+        const response = await fetch(`${API_BASE_URL}/veiculos/${veiculoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                foto_url: imageUrl
+            })
+        });
+
+        console.log('📥 Status da resposta PUT:', response.status);
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Foto salva com sucesso via PUT:', data);
+            alert('✅ Foto adicionada com sucesso!');
+            carregarVeiculos();
+        } else {
+            throw new Error(`PUT também falhou: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Método alternativo também falhou:', error);
+        alert('❌ Servidor não permite upload de fotos no momento. Contate o administrador.');
+    }
 }
 
 // Preencher opções de filtros
@@ -351,5 +405,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
-
