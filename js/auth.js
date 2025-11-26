@@ -1,20 +1,21 @@
 // js/auth.js
 
-// ADICIONAR ESTAS LINHAS NO INÍCIO DO ARQUIVO
+// REMOVA qualquer declaração duplicada de API_BASE_URL
+// DEIXE APENAS ESTAS LINHAS UMA VEZ no início do arquivo:
+
 const API_BASE_URL = 'https://concessionaria-backend-5.onrender.com/api';
 const API_URL = 'https://concessionaria-backend-5.onrender.com/api';
 
-// Função para pegar o token
+// Funções auxiliares
 function getToken() {
     return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
 }
 
-// Função para pegar ID do usuário
 function getCurrentUserId() {
     return localStorage.getItem('user_id') || sessionStorage.getItem('user_id');
 }
 
-// SUA FUNÇÃO DE LOGIN EXISTENTE (mantenha ela, só adicione as linhas acima)
+// Função de login
 async function login(email, password) {
     try {
         console.log('Tentando login para:', email);
@@ -53,4 +54,82 @@ async function login(email, password) {
     }
 }
 
-// ... resto do seu código auth.js existente ...
+// Função de registro
+async function register(nome, email, password) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                nome: nome,
+                email: email,
+                password: password
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Erro no registro');
+        }
+
+        const data = await response.json();
+        alert('Registro realizado com sucesso! Faça login.');
+        window.location.href = 'login.html';
+        
+    } catch (error) {
+        console.error('Erro no registro:', error);
+        alert('Erro no registro: ' + error.message);
+    }
+}
+
+// Função de logout
+function logout() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_email');
+    window.location.href = 'login.html';
+}
+
+// Verificar autenticação
+function checkAuth() {
+    const token = getToken();
+    if (!token) {
+        window.location.href = 'login.html';
+        return false;
+    }
+    return true;
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Login form
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            login(email, password);
+        });
+    }
+
+    // Register form
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nome').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            register(nome, email, password);
+        });
+    }
+
+    // Check auth on protected pages
+    const currentPage = window.location.pathname.split('/').pop();
+    if (currentPage === 'veiculos.html' || currentPage === 'cadastro-veiculo.html') {
+        checkAuth();
+    }
+});
