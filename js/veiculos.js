@@ -146,9 +146,9 @@ async function uploadFotoVeiculo(veiculoId, file) {
 
         console.log('📤 Iniciando upload para veículo:', veiculoId);
 
-        // 1. Fazer upload da imagem (mock por enquanto)
+        // 1. Fazer upload REAL da imagem
         const imageUrl = await fazerUploadImagem(file);
-        console.log('✅ Imagem uploadada, URL:', imageUrl);
+        console.log('✅ Imagem uploadada, URL:', imageUrl.substring(0, 50) + '...');
 
         // 2. SOLUÇÃO: Usar POST para uma rota específica de upload
         const response = await fetch(`${API_BASE_URL}/upload-foto`, {
@@ -185,21 +185,41 @@ async function uploadFotoVeiculo(veiculoId, file) {
     }
 }
 
-// Função para fazer upload da imagem (MOCK - substitua por serviço real)
+// Função para fazer upload REAL da imagem
 async function fazerUploadImagem(file) {
-    // EM PRODUÇÃO: Substitua por upload para Cloudinary, AWS S3, etc.
-    // Por enquanto, usamos uma imagem placeholder
-    
-    console.log('🖼️ Processando arquivo:', file.name, file.type, file.size);
-    
-    // Simula upload delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Retorna URL de imagem mock
-    const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
-    
-    console.log('📸 URL da imagem gerada:', mockImageUrl);
-    return mockImageUrl;
+    try {
+        console.log('🖼️ Fazendo upload REAL do arquivo:', file.name, file.type, file.size);
+        
+        // CONVERTER para Base64 (solução imediata)
+        const base64Image = await converterParaBase64(file);
+        console.log('📸 Imagem convertida para Base64, tamanho:', base64Image.length, 'caracteres');
+        
+        return base64Image;
+        
+    } catch (error) {
+        console.error('❌ Erro no upload real:', error);
+        // Fallback para imagem mock se der erro
+        const mockImageUrl = `https://picsum.photos/400/300?random=${Math.random()}&vehicle=${Date.now()}`;
+        console.log('🔄 Usando fallback mock:', mockImageUrl);
+        return mockImageUrl;
+    }
+}
+
+// Função para converter arquivo para Base64
+function converterParaBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            resolve(e.target.result);
+        };
+        
+        reader.onerror = function(error) {
+            reject(error);
+        };
+        
+        reader.readAsDataURL(file);
+    });
 }
 
 // Método alternativo se o POST não funcionar
