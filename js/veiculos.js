@@ -51,7 +51,8 @@ function exibirVeiculos(veiculos) {
         html += `
         <div class="vehicle-card">
             <div class="vehicle-image" style="background-image: url('${imagemUrl}'); background-size: cover; background-position: center;">
-                
+                <div class="image-overlay">
+                    <span>${veiculo.marca} ${veiculo.modelo}</span>
                     ${veiculo.imagens && veiculo.imagens.length > 1 ? 
                         `<small>+${veiculo.imagens.length - 1} foto(s)</small>` : ''}
                 </div>
@@ -404,4 +405,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
