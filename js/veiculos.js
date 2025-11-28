@@ -128,7 +128,7 @@ function abrirUploadFoto(veiculoId) {
     document.body.removeChild(input);
 }
 
-// Upload de foto para veículo (VERSÃO CORRIGIDA - USANDO POST)
+// Upload de foto para veículo 
 async function uploadFotoVeiculo(veiculoId, file) {
     try {
         // Verificar se o usuário está logado
@@ -190,7 +190,7 @@ async function fazerUploadImagem(file) {
     try {
         console.log('🖼️ Fazendo upload REAL do arquivo:', file.name, file.type, file.size);
         
-        // CONVERTER para Base64 (solução imediata)
+        // CONVERTER para Base64 
         const base64Image = await converterParaBase64(file);
         console.log('📸 Imagem convertida para Base64, tamanho:', base64Image.length, 'caracteres');
         
@@ -405,3 +405,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
